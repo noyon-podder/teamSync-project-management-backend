@@ -4,14 +4,16 @@ import cors from "cors";
 import session from "cookie-session";
 import { config } from "./config/app.config";
 import connectDatabase from "./config/db.config";
+import { errorHandler } from "./middlewares/errorHandler.middleware";
+import { HTTPSTATUS } from "./config/http.config";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
 
 app.use(express.json());
-
 app.use(express.urlencoded({ extended: true }));
 
+// Create session
 app.use(
   session({
     name: "session",
@@ -23,6 +25,7 @@ app.use(
   })
 );
 
+// Cors Policy
 app.use(
   cors({
     origin: config.FRONTEND_ORIGIN,
@@ -30,10 +33,15 @@ app.use(
   })
 );
 
+// Route checking
 app.get("/", (req: Request, res: Response) => {
-  res.status(200).json({ message: "Server is running🥊" });
+  res.status(HTTPSTATUS.OK).json({ message: "Server is running🥊" });
 });
 
+//Global Error Handler
+app.use(errorHandler);
+
+// Server cerate
 app.listen(config.PORT, async () => {
   console.log(`Server listening on port ${config.PORT} in ${config.NODE_ENV}`);
   await connectDatabase();
