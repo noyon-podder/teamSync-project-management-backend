@@ -4,6 +4,7 @@ import { config } from "../config/app.config";
 import {
   googleLoginCallback,
   loginUserController,
+  logoutController,
   registerUserController,
 } from "../controllers/auth.controller";
 
@@ -12,6 +13,8 @@ const authRoutes = Router();
 
 authRoutes.post("/register", registerUserController);
 authRoutes.post("/login", loginUserController);
+
+authRoutes.post("/logout", logoutController);
 
 authRoutes.get(
   "/google",

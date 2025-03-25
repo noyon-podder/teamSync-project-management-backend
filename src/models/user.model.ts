@@ -37,7 +37,7 @@ const userSchema = new Schema<UserDocument>(
     },
     currentWorkspace: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "workspace",
+      ref: "Workspace",
     },
     isActive: {
       type: Boolean,
