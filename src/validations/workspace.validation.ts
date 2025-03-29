@@ -22,3 +22,8 @@ export const updateWorkspaceSchema = z.object({
   name: nameSchema.optional(),
   description: descriptionSchema,
 });
+
+export const changeROleSchema = z.object({
+  roleId: z.string().trim().min(1, { message: "Role id is required" }),
+  memberId: z.string().trim().min(1, { message: "Member id is required" }),
+});

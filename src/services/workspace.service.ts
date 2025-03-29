@@ -5,6 +5,8 @@ import RoleModel from "../models/role-permission.model";
 import UserModel from "../models/user.model";
 import WorkspaceModel from "../models/workspace.model";
 import { NotFoundException } from "../utils/appError";
+import TaskModel from "../models/task.modle";
+import { TaskStatusEnum } from "../enums/task.enum";
 
 // CREATE WORKSPACE
 export const createWorkspaceService = async (
@@ -81,5 +83,73 @@ export const getWorkspaceByIdService = async (workspaceId: string) => {
 
   return {
     workspace: workspaceWithMember,
+  };
+};
+
+// GET ALL MEMBER IN WORKSPACE
+export const getWorkspaceMembersService = async (workspaceId: string) => {
+  // FETCH ALL MEMBERS OF WORKSPACE
+  const members = await MemberModel.find({
+    workspaceId,
+  })
+    .populate("userId", "name email profilePicture -password")
+    .populate("role", "name");
+
+  const roles = await RoleModel.find({}, { name: 1, _id: 1 })
+    .select("-permissions")
+    .lean();
+
+  return { members, roles };
+};
+
+// WORKSPACE ANALYTICS
+export const getWorkspaceAnalyticsService = async (workspaceId: string) => {
+  const currentDate = new Date();
+
+  const totalTasks = await TaskModel.countDocuments({ workspace: workspaceId });
+
+  const overdueTasks = await TaskModel.countDocuments({
+    workspace: workspaceId,
+    dueDate: { $lt: currentDate },
+    status: { $ne: TaskStatusEnum.DONE },
+  });
+
+  const completedTasks = await TaskModel.countDocuments({
+    workspace: workspaceId,
+    status: TaskStatusEnum.DONE,
+  });
+
+  const analytics = {
+    totalTasks,
+    overdueTasks,
+    completedTasks,
+  };
+
+  return { analytics };
+};
+
+export const changeWorkspaceMemberRoleService = async (
+  workspaceId: string,
+  memberId: string,
+  roleId: string
+) => {
+  const workspace = await WorkspaceModel.findById(workspaceId);
+  if (!workspace) throw new NotFoundException("workspace not found");
+
+  const role = await RoleModel.findById(roleId);
+  if (!role) throw new NotFoundException("Role not found");
+
+  const member = await MemberModel.findOne({
+    userId: memberId,
+    workspaceId: workspaceId,
+  });
+
+  if (!member) throw new Error("Member not found in the workspace");
+
+  member.role = role;
+  await member.save();
+
+  return {
+    member,
   };
 };
