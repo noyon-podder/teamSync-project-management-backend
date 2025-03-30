@@ -8,6 +8,13 @@ export const roleGuard = (
 ) => {
   const permissions = RolePermissions[role];
 
+  console.log(
+    "Permissions check form Role Guard:",
+    permissions,
+    "Required Permissions: ",
+    requiredPermissions
+  );
+
   const hasPermissions = requiredPermissions.every((permission) =>
     permissions.includes(permission)
   );
