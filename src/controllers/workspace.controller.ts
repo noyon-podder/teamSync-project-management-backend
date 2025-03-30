@@ -1,6 +1,7 @@
 import { getMemberRoleInWorkspace } from "./../services/member.service";
 import {
   changeROleSchema,
+  updateWorkspaceSchema,
   workspaceIdSchema,
 } from "./../validations/workspace.validation";
 import { Request, Response } from "express";
@@ -10,10 +11,12 @@ import { HTTPSTATUS } from "../config/http.config";
 import {
   changeWorkspaceMemberRoleService,
   createWorkspaceService,
+  deleteWorkspaceIdService,
   getAllWorkspaceUserIsMemberService,
   getWorkspaceAnalyticsService,
   getWorkspaceByIdService,
   getWorkspaceMembersService,
+  updateWorkspaceByIdService,
 } from "../services/workspace.service";
 import { Permissions } from "../enums/role.enum";
 import { roleGuard } from "../utils/roleGuard";
@@ -117,6 +120,50 @@ export const changeWorkspaceMemberRoleController = asyncHandler(
     return res.status(HTTPSTATUS.OK).json({
       message: "Member role changed successfully",
       member,
+    });
+  }
+);
+
+// UPDATE  WORKSPACE BY ID
+export const updateWorkspaceByIdController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { name, description } = updateWorkspaceSchema.parse(req.body);
+    const workspaceId = workspaceIdSchema.parse(req.params.id);
+    const userId = req.user?._id;
+
+    const { role } = await getMemberRoleInWorkspace(userId, workspaceId);
+    roleGuard(role, [Permissions.EDIT_WORKSPACE]);
+
+    const { workspace } = await updateWorkspaceByIdService(
+      workspaceId,
+      name,
+      description
+    );
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Workspace Update Successfully",
+      workspace,
+    });
+  }
+);
+
+//  DELETE WORKSPACE BY ID
+export const deleteWorkspaceIdController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const workspaceId = workspaceIdSchema.parse(req.params.id);
+    const userId = req.user?._id;
+
+    const { role } = await getMemberRoleInWorkspace(userId, workspaceId);
+    roleGuard(role, [Permissions.DELETE_WORKSPACE]);
+
+    const { currentWorkspace } = await deleteWorkspaceIdService(
+      workspaceId,
+      userId
+    );
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Workspace Delete Successfully",
+      currentWorkspace,
     });
   }
 );

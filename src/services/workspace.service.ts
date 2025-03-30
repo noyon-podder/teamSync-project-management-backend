@@ -4,11 +4,12 @@ import MemberModel from "../models/member.model";
 import RoleModel from "../models/role-permission.model";
 import UserModel from "../models/user.model";
 import WorkspaceModel from "../models/workspace.model";
-import { NotFoundException } from "../utils/appError";
+import { BadRequestException, NotFoundException } from "../utils/appError";
 import TaskModel from "../models/task.modle";
 import { TaskStatusEnum } from "../enums/task.enum";
+import ProjectModel from "../models/project.model";
 
-// CREATE WORKSPACE
+//! CREATE WORKSPACE
 export const createWorkspaceService = async (
   userId: string,
   body: {
@@ -49,7 +50,7 @@ export const createWorkspaceService = async (
   };
 };
 
-// GET ALL WORKSPACE FOR PARTICULAR USER
+//! GET ALL WORKSPACE FOR PARTICULAR USER
 export const getAllWorkspaceUserIsMemberService = async (userId: string) => {
   const memberShips = await MemberModel.find({ userId })
     .populate("workspaceId")
@@ -64,7 +65,7 @@ export const getAllWorkspaceUserIsMemberService = async (userId: string) => {
   return { workspaces };
 };
 
-// GET WORKSPACE BY ID
+//! GET WORKSPACE BY ID
 export const getWorkspaceByIdService = async (workspaceId: string) => {
   const workspace = await WorkspaceModel.findById(workspaceId);
 
@@ -86,7 +87,7 @@ export const getWorkspaceByIdService = async (workspaceId: string) => {
   };
 };
 
-// GET ALL MEMBER IN WORKSPACE
+//! GET ALL MEMBER IN WORKSPACE
 export const getWorkspaceMembersService = async (workspaceId: string) => {
   // FETCH ALL MEMBERS OF WORKSPACE
   const members = await MemberModel.find({
@@ -102,7 +103,7 @@ export const getWorkspaceMembersService = async (workspaceId: string) => {
   return { members, roles };
 };
 
-// WORKSPACE ANALYTICS
+//! WORKSPACE ANALYTICS
 export const getWorkspaceAnalyticsService = async (workspaceId: string) => {
   const currentDate = new Date();
 
@@ -128,6 +129,7 @@ export const getWorkspaceAnalyticsService = async (workspaceId: string) => {
   return { analytics };
 };
 
+//! CHANGE WORKSPACE MEMBER ROLE
 export const changeWorkspaceMemberRoleService = async (
   workspaceId: string,
   memberId: string,
@@ -152,4 +154,78 @@ export const changeWorkspaceMemberRoleService = async (
   return {
     member,
   };
+};
+
+//!  UPDATE WORKSPACE BY ID
+export const updateWorkspaceByIdService = async (
+  workspaceId: string,
+  name?: string,
+  description?: string
+) => {
+  const workspace = await WorkspaceModel.findById(workspaceId);
+  if (!workspace) throw new NotFoundException("workspace not found");
+
+  workspace.name = name || workspace.name;
+  workspace.description = description || workspace.description;
+  await workspace.save();
+
+  return {
+    workspace,
+  };
+};
+
+//! DELETE WORKSPACE BY ID
+export const deleteWorkspaceIdService = async (
+  workspaceId: string,
+  userId: string
+) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const workspace = await WorkspaceModel.findById(workspaceId);
+    if (!workspace) throw new NotFoundException("workspace not found");
+
+    if (workspace.owner.toString() !== userId) {
+      throw new BadRequestException("Only the workspace owner can delete it");
+    }
+
+    const user = await UserModel.findById(userId).session(session);
+    if (!user) throw new NotFoundException("User not found");
+
+    await ProjectModel.deleteMany({ workspace: workspace._id }).session(
+      session
+    );
+
+    await TaskModel.deleteMany({ workspace: workspace._id }).session(session);
+
+    await MemberModel.deleteMany({ workspace: workspace._id }).session(session);
+
+    // update the user's currentWorkspace if it matches the delete workspace
+    if (user?.currentWorkspace?.equals(workspaceId)) {
+      const memberWorkspace = await MemberModel.findOne({ userId }).session(
+        session
+      );
+
+      // update the current workspace
+      user.currentWorkspace = memberWorkspace
+        ? memberWorkspace.workspaceId
+        : null;
+
+      await user.save({ session });
+    }
+
+    await workspace.deleteOne({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return {
+      currentWorkspace: user.currentWorkspace,
+    };
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
 };
