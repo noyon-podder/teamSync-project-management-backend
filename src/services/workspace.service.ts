@@ -175,7 +175,7 @@ export const updateWorkspaceByIdService = async (
 };
 
 //! DELETE WORKSPACE BY ID
-export const deleteWorkspaceIdService = async (
+export const deleteWorkspaceService = async (
   workspaceId: string,
   userId: string
 ) => {
@@ -183,31 +183,40 @@ export const deleteWorkspaceIdService = async (
   session.startTransaction();
 
   try {
-    const workspace = await WorkspaceModel.findById(workspaceId);
-    if (!workspace) throw new NotFoundException("workspace not found");
+    const workspace = await WorkspaceModel.findById(workspaceId).session(
+      session
+    );
+    if (!workspace) {
+      throw new NotFoundException("Workspace not found");
+    }
 
+    // Check if the user owns the workspace
     if (workspace.owner.toString() !== userId) {
-      throw new BadRequestException("Only the workspace owner can delete it");
+      throw new BadRequestException(
+        "You are not authorized to delete this workspace"
+      );
     }
 
     const user = await UserModel.findById(userId).session(session);
-    if (!user) throw new NotFoundException("User not found");
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
 
     await ProjectModel.deleteMany({ workspace: workspace._id }).session(
       session
     );
-
     await TaskModel.deleteMany({ workspace: workspace._id }).session(session);
 
-    await MemberModel.deleteMany({ workspace: workspace._id }).session(session);
+    await MemberModel.deleteMany({
+      workspaceId: workspace._id,
+    }).session(session);
 
-    // update the user's currentWorkspace if it matches the delete workspace
+    // Update the user's currentWorkspace if it matches the deleted workspace
     if (user?.currentWorkspace?.equals(workspaceId)) {
       const memberWorkspace = await MemberModel.findOne({ userId }).session(
         session
       );
-
-      // update the current workspace
+      // Update the user's currentWorkspace
       user.currentWorkspace = memberWorkspace
         ? memberWorkspace.workspaceId
         : null;
@@ -218,6 +227,7 @@ export const deleteWorkspaceIdService = async (
     await workspace.deleteOne({ session });
 
     await session.commitTransaction();
+
     session.endSession();
 
     return {

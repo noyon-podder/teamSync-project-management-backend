@@ -11,7 +11,7 @@ import { HTTPSTATUS } from "../config/http.config";
 import {
   changeWorkspaceMemberRoleService,
   createWorkspaceService,
-  deleteWorkspaceIdService,
+  deleteWorkspaceService,
   getAllWorkspaceUserIsMemberService,
   getWorkspaceAnalyticsService,
   getWorkspaceByIdService,
@@ -156,7 +156,7 @@ export const deleteWorkspaceIdController = asyncHandler(
     const { role } = await getMemberRoleInWorkspace(userId, workspaceId);
     roleGuard(role, [Permissions.DELETE_WORKSPACE]);
 
-    const { currentWorkspace } = await deleteWorkspaceIdService(
+    const { currentWorkspace } = await deleteWorkspaceService(
       workspaceId,
       userId
     );
